@@ -1,0 +1,1 @@
+Place the exact deployed contract file here (from https://github.com/MIKI4222/genlayer-dependency-release-gate, `contract.py`) and note the commit hash and the Bradbury address 0xC0CEa82374C4F1bcE296FCDF6818F10A1a20a1aA it matches.
