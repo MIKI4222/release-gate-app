@@ -10,7 +10,7 @@ A single CI script is a single point of failure for release approval. Here the c
 
 ## Pages
 - **Overview** — live gate state read from the contract
-- **Gate** — connect wallet, propose, challenge, finalize, claim, owner tools; full transaction lifecycle (sign → submitted → consensus → accepted/failed)
+- **Gate** — connect wallet, propose, challenge, finalize, claim (label is sent and returned in the tx result, not stored), owner tools; full transaction lifecycle (sign → submitted → consensus → accepted/failed)
 - **How it works** — policy, consensus design, lifecycle, limits
 - **Integrate** — genlayer-js snippet and method table
 - **Evidence** — verified Bradbury transactions
@@ -24,7 +24,7 @@ npm run build   # static output in dist/
 Needs MetaMask for writes. Reads work without a wallet.
 
 ## Contract source
-Copy the exact deployed source into `contract/` (see `contract/README.md`) and keep it in sync with the Bradbury deployment. Original repo: https://github.com/MIKI4222/genlayer-dependency-release-gate
+The exact deployed source is in `contract/contract.py`, with provenance (original repo, commit, address) in `contract/README.md`. The contract has no `get_claim_label()` view; the claim label is not persisted. Original repo: https://github.com/MIKI4222/genlayer-dependency-release-gate
 
 ## Deploy
 Any static host with a public URL (Cloudflare Pages, Netlify, GitHub Pages). Routing is hash-based, so no rewrite rules are needed.

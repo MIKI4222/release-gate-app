@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CONTRACT, EXPLORER, REPO, Snapshot, Step, connectWallet, readAll, send } from "./chain";
 
-const STATES = [["READY", "Waiting for a proposal"], ["OPEN", "Challenge window"], ["CHALLENGED", "Blocked by evidence"], ["FINALIZED", "Eligibility confirmed"], ["CLAIMED", "Authorization recorded"]];
+const STATES = [["READY", "Waiting for a proposal"], ["OPEN", "Challenge window"], ["CHALLENGED", "Blocked by evidence"], ["INELIGIBLE", "Policy check failed"], ["FINALIZED", "Eligibility confirmed"], ["CLAIMED", "Authorization recorded"]];
 const TXS: [string, string, string][] = [
   ["Eligibility consensus", "0xe1c8a5c3da394857a28cbea6dad17d0ab96ebb358be22df187280f295d5e475e", "Validators fetched npm metadata and agreed on ELIGIBLE"],
   ["Eligibility finalization", "0x53ceef940e7478641e049a67c288471f81b969f3f4f434c386b975a7de177611", "Challenge window expired, state became FINALIZED"],
@@ -92,7 +92,6 @@ function Gate({ snap, err, refresh }: { snap: Snapshot | null; err: string; refr
       <dt>Challenge deadline</dt><dd>{when}</dd>
       <dt>Challenge evidence</dt><dd>{clean(snap?.get_challenge_evidence) || "none"}</dd>
       <dt>Completed cycles</dt><dd>{clean(snap?.get_completed_cycles) || "0"}</dd>
-      <dt>Claim label</dt><dd>{clean(snap?.get_claim_label) || "not claimed"}</dd>
       <dt>Contract</dt><dd><a className="mono" href={`${EXPLORER}/address/${CONTRACT}`} target="_blank" rel="noreferrer">{CONTRACT}</a></dd>
     </dl></div>
 
@@ -102,11 +101,11 @@ function Gate({ snap, err, refresh }: { snap: Snapshot | null; err: string; refr
       <div className="card"><h3>1. Propose</h3><p>Validators fetch the npm metadata and vote on eligibility. Needs state READY.</p><button disabled={can(status === "READY")} onClick={() => run("propose_eligibility")}>Verify package</button></div>
       <div className="card"><h3>2. Challenge</h3><p>Block an open proposal with an evidence URL. Needs state OPEN.</p><input aria-label="Evidence URL" placeholder="https://evidence.example/issue" value={evidence} onChange={(e) => setEvidence(e.target.value)} /><div className="row"><button disabled={can(status === "OPEN" && evidence.startsWith("http"))} onClick={() => run("challenge_eligibility", [evidence])}>Submit challenge</button></div></div>
       <div className="card"><h3>3. Finalize</h3><p>Available after the challenge deadline passes without a challenge.</p><button disabled={can(clean(snap?.can_finalize) === "true")} onClick={() => run("finalize_eligibility")}>Finalize</button></div>
-      <div className="card"><h3>4. Claim</h3><p>Records the one-time public authorization. Needs state FINALIZED.</p><input aria-label="Claim label" value={label} onChange={(e) => setLabel(e.target.value)} /><div className="row"><button disabled={can(clean(snap?.can_claim) === "true" && label.length > 0)} onClick={() => run("claim_authorization", [label])}>Claim authorization</button></div></div>
+      <div className="card"><h3>4. Claim</h3><p>Records the one-time public authorization. Needs state FINALIZED. The label is sent with the call and returned in the transaction result; the contract does not store it.</p><input aria-label="Claim label" value={label} onChange={(e) => setLabel(e.target.value)} /><div className="row"><button disabled={can(clean(snap?.can_claim) === "true" && label.length > 0)} onClick={() => run("claim_authorization", [label])}>Claim authorization</button></div></div>
     </div>
     <h2>Owner tools</h2>
     <p>These only succeed from the owner account. Other wallets will see the transaction rejected.</p>
-    <div className="row"><button className="ghost" disabled={can(status === "CHALLENGED")} onClick={() => run("reopen_challenged_cycle")}>Reopen challenged cycle</button><button className="ghost" disabled={can(status === "CLAIMED" || status === "FINALIZED")} onClick={() => run("reset_cycle")}>Reset cycle</button></div>
+    <div className="row"><button className="ghost" disabled={can(status === "CHALLENGED")} onClick={() => run("reopen_challenged_cycle")}>Reopen challenged cycle</button><button className="ghost" disabled={can(status === "CLAIMED" || status === "FINALIZED" || status === "INELIGIBLE")} onClick={() => run("reset_cycle")}>Reset cycle</button></div>
 
     {step && <div className="card" aria-live="polite"><h3>Transaction: {fn}</h3>
       <ul className="tl">{labels.map((l, i) => {
@@ -138,6 +137,7 @@ function How() {
     <p>The free-form reason is informational. Only the decision and policy fields count. Malformed output, missing fields and prompt-injection attempts are rejected.</p>
     <h2>Lifecycle</h2>
     <pre>{`READY → propose_eligibility() → OPEN
+READY → propose_eligibility() → INELIGIBLE (policy failed) → reset_cycle() → READY
 OPEN → challenge_eligibility(url) → CHALLENGED → reopen_challenged_cycle() → READY
 OPEN → (deadline passes) finalize_eligibility() → FINALIZED
 FINALIZED → claim_authorization(label) → CLAIMED
@@ -162,7 +162,7 @@ const status = await client.readContract({
 });
 if (status !== "CLAIMED") process.exit(1); // block the release`}</pre>
     <table><thead><tr><th>Method</th><th>Purpose</th></tr></thead><tbody>
-      {[["propose_eligibility()", "Fetch metadata, run consensus, open challenge window"], ["challenge_eligibility(evidence_url)", "Block an open proposal"], ["finalize_eligibility()", "Finalize after the deadline"], ["claim_authorization(label)", "Record the one-time public claim"], ["set_package_source(url, name)", "Owner: change source and expected name"], ["set_challenge_period(seconds)", "Owner: set window length"], ["reopen_challenged_cycle()", "Owner: clear a challenge"], ["reset_cycle()", "Owner: start a new cycle"], ["get_status(), get_decision(), can_finalize(), can_claim() …", "Read-only views"]].map(([m, p]) => <tr key={m}><td><code>{m}</code></td><td>{p}</td></tr>)}
+      {[["propose_eligibility()", "Fetch metadata, run consensus, open challenge window"], ["challenge_eligibility(evidence_url)", "Block an open proposal"], ["finalize_eligibility()", "Finalize after the deadline"], ["claim_authorization(label)", "Record the one-time public claim; the label is returned in the tx result and is not stored"], ["set_package_source(url, name)", "Owner: change source and expected name"], ["set_challenge_period(seconds)", "Owner: set window length"], ["reopen_challenged_cycle()", "Owner: clear a challenge"], ["reset_cycle()", "Owner: start a new cycle"], ["get_status(), get_decision(), can_finalize(), can_claim() …", "Read-only views"]].map(([m, p]) => <tr key={m}><td><code>{m}</code></td><td>{p}</td></tr>)}
     </tbody></table>
   </>);
 }

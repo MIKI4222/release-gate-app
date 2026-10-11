@@ -12,7 +12,7 @@ let wallet: any = null;
 const bigintSafe = (_: string, v: unknown) => (typeof v === "bigint" ? v.toString() : v instanceof Map ? Object.fromEntries(v) : v);
 const str = (v: unknown) => (typeof v === "object" && v !== null ? JSON.stringify(v, bigintSafe) : String(v));
 
-const READS = ["get_status", "get_cycle_id", "get_decision", "get_package_version", "get_reason", "get_challenge_deadline", "get_challenge_evidence", "get_completed_cycles", "can_finalize", "can_claim", "get_claim_label"];
+const READS = ["get_status", "get_cycle_id", "get_decision", "get_package_version", "get_reason", "get_challenge_deadline", "get_challenge_evidence", "get_completed_cycles", "can_finalize", "can_claim"];
 export type Snapshot = Record<string, string>;
 
 export async function readAll(): Promise<Snapshot> {
